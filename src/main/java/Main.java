@@ -8,8 +8,8 @@ public class Main {
     static Statement statement;
     static PreparedStatement preparedStatement;
     static PreparedStatement preparedStatementUpdate;
-    static PreparedStatement preparedStatement1;
-    static PreparedStatement preparedStatement2;
+    static PreparedStatement preparedStatementSelectTitle;
+    static PreparedStatement preparedStatementCostTitle;
 
     public static void main(String[] args) {
         try {
@@ -24,16 +24,47 @@ public class Main {
         }
     }
 
+    public static void createTable() throws SQLException {
+        statement.executeUpdate("CREATE TABLE if not exists products (" +
+                " id INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
+                " prodid INTEGER UNIQUE,\n " +
+                "title TEXT,\n " +
+                "cost INTEGER\n " +
+                "); ");
+    }
+
     public static void connect() throws ClassNotFoundException, SQLException {
         Class.forName("org.sqlite.JDBC");
         connection = DriverManager.getConnection("jdbc:sqlite:main.db");
         statement = connection.createStatement();
         preparedStatement = connection.prepareStatement("INSERT INTO products (prodid,title,cost) VALUES (?, ?, ?);");
         preparedStatementUpdate = connection.prepareStatement("update products set cost = ? WHERE title = ?;");
+        preparedStatementSelectTitle = connection.prepareStatement("select title FROM products WHERE cost BETWEEN ? and ?;");
+        preparedStatementCostTitle = connection.prepareStatement("SELECT cost FROM products WHERE title = ?;");
 
     }
 
     public static void disconnect() {
+        try {
+            preparedStatementUpdate.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        try {
+            preparedStatementSelectTitle.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        try {
+            preparedStatement.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        try {
+            preparedStatementCostTitle.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         try {
             connection.close();
         } catch (SQLException e) {
@@ -43,7 +74,7 @@ public class Main {
 
     public static void autoInsert() throws SQLException {
         connection.setAutoCommit(false);
-        for (int i = 1; i < 10; i++) {
+        for (int i = 1; i < 10000; i++) {
             preparedStatement.setInt(1, i);
             preparedStatement.setString(2, "товар" + i);
             preparedStatement.setInt(3, i * 10);
@@ -55,14 +86,6 @@ public class Main {
 
     private static void clearTabl() throws SQLException {
         statement.executeUpdate("DELETE FROM products;");
-    }
-
-    private static void selectEx() throws SQLException {
-        ResultSet rst = statement.executeQuery("SELECT * FROM products;");
-        while (rst.next()) {
-            System.out.println(rst.getInt(1) + " " + rst.getString(2) + " "
-                    + rst.getString(3) + " " + rst.getInt(4));
-        }
     }
 
     public static void run() {
@@ -86,9 +109,9 @@ public class Main {
 
     public static void selectTitle(String str) throws SQLException {
         String[] words = str.split(" ");
-        ResultSet resultSet =
-                statement.executeQuery("select title FROM products WHERE cost BETWEEN "
-                        + words[1] + " and " + words[2] + " ;");
+        preparedStatementSelectTitle.setInt(1, Integer.parseInt(words[1]));
+        preparedStatementSelectTitle.setInt(2, Integer.parseInt(words[2]));
+        ResultSet resultSet = preparedStatementSelectTitle.executeQuery();
         while (resultSet.next()) {
             System.out.println(resultSet.getString(1));
         }
@@ -96,15 +119,16 @@ public class Main {
 
     public static void updateCost(String str) throws SQLException {
         String[] words = str.split(" ");
-        preparedStatementUpdate.setInt(1,Integer.parseInt(words[2]));
-        preparedStatementUpdate.setString(2,words[1]);
+        preparedStatementUpdate.setInt(1, Integer.parseInt(words[2]));
+        preparedStatementUpdate.setString(2, words[1]);
         preparedStatementUpdate.execute();
 
     }
 
     public static void costTitle(String str) throws SQLException {
         String[] words = str.split(" ");
-        ResultSet rst = statement.executeQuery("SELECT cost FROM products WHERE title = '" + words[1] + "';");
+        preparedStatementCostTitle.setString(1, words[1]);
+        ResultSet rst = preparedStatementCostTitle.executeQuery();
         if (rst.next()) {
             System.out.println(rst.getInt(1));
         } else {
